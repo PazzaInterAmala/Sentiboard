@@ -1,0 +1,2 @@
+# Sentiboard
+Sentiment analysis dashboard
