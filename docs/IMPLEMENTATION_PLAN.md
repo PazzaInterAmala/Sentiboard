@@ -419,7 +419,7 @@ Build differently from the design:
 
 ## 9. Deployment
 
-Owner: Roshan; model artifacts on Hugging Face Hub: Kirill (see §10).
+Owner: Roshan; model artifacts, ONNX/RAM and the model-download step of the build: Kirill (see §10).
 
 | Piece | Service | How |
 |---|---|---|
@@ -443,14 +443,17 @@ Environments: `local` (docker compose with Postgres) → `preview` (Vercel PR pr
 
 | Person | Owns | Folders |
 |---|---|---|
-| **Kirill** | **ML**: data, `clean_text`, baseline, DistilBERT, evaluation, `sentiboard_ml` package, ONNX export, publishing model artifacts to Hugging Face Hub. **ML in the backend**: `app/ml/` adapter (load models on startup, batch predict), seeding the `models` table, and the analytics in `services/dashboard.py` (split, per-day, top words, example posts). | `ML/`, `Backend/app/ml/`, `Backend/app/services/dashboard.py` |
-| **Sirio** | **Backend core**: FastAPI app, DB models + Alembic, auth, `/analyze`, Reddit client, background jobs, CSV import, all endpoints incl. dashboard/posts/export routes, backend tests. | `Backend/` (rest) |
-| **Roshan** | **Frontend**: Next.js app, all screens per §8 and the Figma reference, charts, polling, empty/error states, design updates. **Deployment + CI/CD**: Vercel, Render, Postgres, `Backend/Dockerfile`, `render.yaml`, GitHub Actions, secrets/env vars. Helps on backend where needed (e.g. CORS, health check, export endpoint). | `Frontend/`, `Backend/Dockerfile`, `render.yaml`, `.github/` |
+| **Kirill** | **ML**: data, `clean_text`, baseline, DistilBERT, evaluation, `sentiboard_ml` package, publishing model artifacts to Hugging Face Hub. **ML in production**: ONNX export + quantization, RAM budget, the model-download step of the Docker build. **ML in the backend**: `app/ml/` adapter (load models on startup, batch predict), seeding the `models` table, analytics in `services/dashboard.py` (split, per-day, top words, example posts). **Reddit client**: `services/reddit.py` (`fetch_posts(keyword, limit, time_range)` → list of post dicts). | `ML/`, `Backend/app/ml/`, `Backend/app/services/dashboard.py`, `Backend/app/services/reddit.py` |
+| **Sirio** | **Backend core**: FastAPI app, DB models + Alembic, auth, `/analyze`, background jobs, CSV import, all endpoints incl. dashboard/posts/export routes, startup recovery, backend tests. | `Backend/` (rest) |
+| **Roshan** | **Frontend**: Next.js app, all screens per §8 and the Figma reference, charts, polling, empty/error states, design updates. **Deployment + CI/CD**: Vercel, Render, Postgres, `Backend/Dockerfile`, `render.yaml`, GitHub Actions, secrets/env vars, CORS. | `Frontend/`, `Backend/Dockerfile`, `render.yaml`, `.github/` |
 
-Why this split: Roshan made the design and is comfortable with frontend, deployment and CI/CD, so they own everything the user sees and everything that ships. Backend core is the biggest part, so Sirio gets it in full. Kirill's ML training is front-loaded (weeks 1–3); in weeks 3–5 the focus moves to wiring the models into the backend and the dashboard analytics, which takes load off Sirio.
+Why this split: the three parts are meant to be about equal in volume.
+- Sirio keeps the backend core but not the Reddit client and not the dashboard analytics – both are self-contained services with a clear interface.
+- Roshan keeps frontend + deploy/CI but not the model-specific part of deployment (ONNX, RAM, model download) – that is the riskiest piece and it is ML knowledge.
+- Kirill's ML training is front-loaded (weeks 1–3); after that the focus moves to these integration pieces.
 
 Contracts between people (change only together, in a PR reviewed by both sides):
-- Kirill ↔ Sirio: `clean_text` / `Predictor` interface (§7.5) and `services/dashboard.py` function signatures.
+- Kirill ↔ Sirio: `clean_text` / `Predictor` interface (§7.5), `fetch_posts` and `services/dashboard.py` function signatures.
 - Sirio ↔ Roshan: API contract (§6.2) – Roshan mocks it until the real endpoints exist; env vars (§6.6).
 - Kirill ↔ Roshan: where model artifacts live and how the Docker build downloads them (§7.4, §9); RAM budget.
 
@@ -460,16 +463,16 @@ Every PR is reviewed by one of the other two.
 
 Week numbers count from the spec date (week 1 = week of Oct 6, 2026). Adjust if the course calendar says otherwise.
 
-| Week | Sirio – Backend core | Kirill – ML + ML in backend | Roshan – Frontend + Deploy/CI |
+| Week | Sirio – Backend core | Kirill – ML + integration | Roshan – Frontend + Deploy/CI |
 |---|---|---|---|
-| 1–2 | project skeleton, config, DB models + first Alembic migration, auth endpoints, `/auth/me` | data loading + EDA, `clean_text`, baseline trained + metrics, `Predictor` interface with baseline | Next.js skeleton, layout + sidebar, login/register pages, API client with mocks; create Vercel/Render accounts, team access; GitHub Actions (lint + tests) |
-| 3 | `/analyze`, Reddit service, keyword job, `/queries`, `/queries/{id}` | DistilBERT fine-tuning + evaluation; `app/ml/` adapter (load on startup, batch predict); measure RAM | Analyze page: Text tab with `ResultCard`, Keyword tab, polling page; local `docker compose` (backend + Postgres) |
-| 4 | CSV upload + job, `/dashboard`, `/posts`, `/export` routes, startup recovery of stuck jobs | `services/dashboard.py` (split, per-day, top words, examples); seed `models` table; push artifacts to HF Hub; decide memory option (§9) with Roshan | History + Dashboard pages, CSV tab; Dockerfile + `render.yaml`, first deploy of backend + DB, Vercel project |
-| 5 | tests for jobs and endpoints, fixes after first deploy | ONNX export if needed, Reddit sanity set evaluation, dashboard tests | empty/error states, polish, switch from mocks to production API; prod env vars, CORS, model download in build |
+| 1–2 | project skeleton, config, DB models + first Alembic migration, auth endpoints, `/auth/me` | data loading + EDA, `clean_text`, baseline trained + metrics, `Predictor` interface with baseline; Reddit API app + keys | Next.js skeleton, layout + sidebar, login/register pages, API client with mocks; create Vercel/Render accounts, team access; GitHub Actions (lint + tests) |
+| 3 | `/analyze`, keyword job (using `fetch_posts`), `/queries`, `/queries/{id}` | DistilBERT fine-tuning + evaluation; `services/reddit.py`; `app/ml/` adapter (load on startup, batch predict); measure RAM | Analyze page: Text tab with `ResultCard`, Keyword tab, polling page; local `docker compose` (backend + Postgres) |
+| 4 | CSV upload + job, `/dashboard`, `/posts`, `/export` routes, startup recovery of stuck jobs | `services/dashboard.py` (split, per-day, top words, examples); seed `models` table; push artifacts to HF Hub; ONNX export + decide memory option (§9) | History + Dashboard pages, CSV tab; Dockerfile + `render.yaml`, first deploy of backend + DB, Vercel project |
+| 5 | tests for jobs and endpoints, fixes after first deploy | model download in Docker build, check RAM on Render; Reddit sanity set evaluation; tests for reddit + dashboard services | empty/error states, polish, switch from mocks to production API; prod env vars, CORS |
 | 6 | bug fixes, end-to-end test on production | final metrics table for the report | bug fixes, deploy monitoring, demo scenario |
 | if time | compare mode, `/models` endpoints | comparison metrics, model admin data | compare toggle, Models page, dashboard filters |
 
-Dependencies to watch: Sirio's `/analyze` needs Kirill's baseline `Predictor` (end of week 2); Roshan's first deploy (week 4) needs Kirill's artifacts on HF Hub and Sirio's app starting cleanly.
+Dependencies to watch: Sirio's `/analyze` needs Kirill's baseline `Predictor` (end of week 2) and the keyword job needs `fetch_posts` (week 3 – Sirio can stub it until then); Roshan's first deploy (week 4) needs Kirill's artifacts on HF Hub and Sirio's app starting cleanly.
 
 ### 10.3 MVP checklist
 
