@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sentiboard-ml"
+version = "0.1.0"
+description = "Sentiment models (baseline + DistilBERT) for SentiBoard"
+requires-python = ">=3.12"
+# Runtime deps: what the backend needs to load models and predict.
+dependencies = [
+    "numpy>=1.26",
+    "scikit-learn>=1.5",
+    "joblib>=1.4",
+    "onnxruntime>=1.18",  # serving DistilBERT from model.onnx (no torch needed)
+    "tokenizers>=0.20",
+    "transformers>=5.0",  # train_distilbert.py uses the v5 TrainingArguments names
+    "torch>=2.4",
+]
+
+[project.optional-dependencies]
+# Training, evaluation and notebooks.
+train = [
+    "datasets>=3.0",
+    "pandas>=2.2",
+    "accelerate>=0.34",
+    "onnx>=1.16",  # export_onnx.py
+    "jupyter",
+]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[tool.setuptools.packages.find]
+include = ["sentiboard_ml*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"

@@ -316,8 +316,11 @@ Commit only `.env.example`; real `.env` is already in `.gitignore`.
 3-class sentiment (negative / neutral / positive) on short English social-media text.
 
 ### 7.2 Data **[proposed]**
-- Main: **TweetEval – sentiment** (Hugging Face `cardiffnlp/tweet_eval`, config `sentiment`): ~45k train / 2k val / 12k test, already 3 classes, social-media style.
-- Optional sanity set: ~200 Reddit posts labeled by the team, to see how the model transfers from tweets to Reddit. Report it separately.
+- Main: **GoEmotions → 3 classes** (Hugging Face `google-research-datasets/go_emotions`, config `simplified`): human-labelled **Reddit comments**, 27 emotions mapped to positive/negative/neutral with Google's own `sentiment_mapping.json`. Comments with an ambiguous emotion (confusion, curiosity, realization, surprise) or with emotions from different groups are dropped. After dedup: ~35.9k train / 4.5k val / 4.5k test, ≈ 23% negative / 35% neutral / 42% positive in every split.
+- Out-of-domain check: **TweetEval – sentiment** (`cardiffnlp/tweet_eval`): ~45.6k train / 2k val / 12.3k test tweets. Its test split has a very different class balance from train (32% vs 16% negative), so only macro F1 is meaningful there.
+- Both are loaded with `sentiboard_ml.data.load(name)` at a pinned Hub revision; nothing is stored in git. Duplicates are removed and val/test texts are removed from train.
+- Known limits of GoEmotions: comments are short (median 12 words) while the app analyses posts (title + body); mixed-emotion texts are absent from training; names are masked as `[NAME]`. Check the dataset licence before the final report.
+- Optional sanity set: ~300 Reddit **posts** labelled by the team (`ML/data/reddit_test.csv`, the only dataset we keep in git), to see how the model transfers from comments to posts. Report it separately.
 
 ### 7.3 Models
 | Model | Details | Target |
@@ -325,7 +328,7 @@ Commit only `.env.example`; real `.env` is already in `.gitignore`.
 | baseline | TF-IDF (word 1–2 grams, min_df=2) + LogisticRegression (class_weight=balanced) | fast, explainable, macro F1 reference |
 | distilbert | `distilbert-base-uncased` fine-tuned, max_len 128, 2–3 epochs, lr 2e-5 | main model, should beat baseline on macro F1 |
 
-Metrics: accuracy and **macro F1** on the TweetEval test split → written to `ML/artifacts/<name>-<version>/metrics.json` and to the `models` table.
+Metrics: accuracy and **macro F1** on the GoEmotions test split (plus TweetEval test as out-of-domain) → written to `ML/artifacts/<name>-<version>/metrics.json` and to the `models` table.
 
 ### 7.4 Artifacts
 - `ML/artifacts/` is git-ignored.
@@ -500,7 +503,7 @@ Dependencies to watch: Sirio's `/analyze` needs Kirill's baseline `Predictor` (e
 
 ## 12. Open questions
 1. Accept the schema changes marked **[proposed]** in §5 (`role`, `params`, `model_id`, `error_message` on queries; `UNIQUE (source, external_id)`; `UNIQUE (post_id, model_id)`; single active model)? → then update the ER diagram.
-2. Dataset: TweetEval sentiment OK, or does the course require a specific one?
+2. ~~Dataset~~ – decided: GoEmotions (main) + TweetEval (out-of-domain check), §7.2. Still check: course requirements and GoEmotions licence.
 3. Registering a new model version (use case diagram): admin UI, or a CLI/seed script only? Proposed: script only; UI just lists models and switches the active one.
 4. CSV: support an optional date column so "sentiment over time" works for CSV?
 5. Render plan / memory budget for DistilBERT (§9).

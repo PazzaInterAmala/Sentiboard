@@ -218,4 +218,14 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+.streamlit/secrets.toml
+
+# Python virtual environments
 .venv/
+
+# SentiBoard: ML artifacts (model weights live on Hugging Face Hub, not in git)
+ML/artifacts/
+*.joblib
+*.pt
+*.safetensors
+*.onnx
