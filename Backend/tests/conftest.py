@@ -41,6 +41,16 @@ def db_connection(test_engine):
 
 
 @pytest.fixture
+def db(db_connection):
+    with Session(
+        bind=db_connection,
+        autoflush=False,
+        join_transaction_mode="create_savepoint",
+    ) as session:
+        yield session
+
+
+@pytest.fixture
 def client(db_connection):
     def override_get_db():
         with Session(

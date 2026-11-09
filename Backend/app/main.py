@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import auth
+from app.routers import analyze, auth, queries
 
 app = FastAPI(title="SentiBoard")
 
@@ -14,6 +14,8 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(analyze.router)
+app.include_router(queries.router)
 
 
 @app.get("/health")
