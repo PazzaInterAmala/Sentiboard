@@ -17,25 +17,16 @@ class User(Base):
 
     user_id: Mapped[int] = mapped_column(primary_key=True)
 
-    username: Mapped[str] = mapped_column(
-        String(50),
-        unique=True
-    )
+    username: Mapped[str] = mapped_column(String(50), unique=True)
 
-    email: Mapped[str] = mapped_column(
-        String(255),
-        unique=True
-    )
+    email: Mapped[str] = mapped_column(String(255), unique=True)
 
     password_hash: Mapped[str] = mapped_column(String(255))
 
     role: Mapped[UserRole] = mapped_column(
-        Enum(UserRole, name="user_role"),
-        default=UserRole.user,
-        server_default="user"
+        Enum(UserRole, name="user_role"), default=UserRole.user, server_default="user"
     )
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now()
+        DateTime(timezone=True), server_default=func.now()
     )

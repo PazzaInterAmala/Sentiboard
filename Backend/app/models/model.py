@@ -1,5 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
+
 from sqlalchemy import (
     Boolean,
     DateTime,
@@ -7,7 +8,6 @@ from sqlalchemy import (
     Numeric,
     String,
     UniqueConstraint,
-    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -32,13 +32,13 @@ class Model(Base):
     version: Mapped[str] = mapped_column(String(20))
 
     accuracy: Mapped[Decimal | None] = mapped_column(
-    Numeric(5, 4),
-    nullable=True,
+        Numeric(5, 4),
+        nullable=True,
     )
 
     f1_score: Mapped[Decimal | None] = mapped_column(
-    Numeric(5, 4),
-    nullable=True,
+        Numeric(5, 4),
+        nullable=True,
     )
 
     trained_at: Mapped[datetime | None] = mapped_column(

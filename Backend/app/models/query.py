@@ -35,13 +35,9 @@ class SearchQuery(Base):
 
     query_id: Mapped[int] = mapped_column(primary_key=True)
 
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.user_id")
-    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.user_id"))
 
-    type: Mapped[QueryType] = mapped_column(
-        Enum(QueryType, name="query_type")
-    )
+    type: Mapped[QueryType] = mapped_column(Enum(QueryType, name="query_type"))
 
     keyword: Mapped[str | None] = mapped_column(
         String(100),
@@ -89,12 +85,11 @@ class SearchQuery(Base):
         nullable=True,
     )
 
+
 class QueryPost(Base):
     __tablename__ = "query_posts"
 
-    __table_args__ = (
-        Index("ix_query_posts_post_id", "post_id"),
-    )
+    __table_args__ = (Index("ix_query_posts_post_id", "post_id"),)
 
     query_id: Mapped[int] = mapped_column(
         ForeignKey("search_queries.query_id", ondelete="CASCADE"),
@@ -112,4 +107,3 @@ Index(
     SearchQuery.user_id,
     SearchQuery.created_at.desc(),
 )
-

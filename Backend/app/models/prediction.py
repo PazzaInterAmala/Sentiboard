@@ -34,33 +34,21 @@ class Prediction(Base):
 
     prediction_id: Mapped[int] = mapped_column(primary_key=True)
 
-    post_id: Mapped[int] = mapped_column(
-        ForeignKey("posts.post_id")
-    )
+    post_id: Mapped[int] = mapped_column(ForeignKey("posts.post_id"))
 
-    model_id: Mapped[int] = mapped_column(
-        ForeignKey("models.model_id")
-    )
+    model_id: Mapped[int] = mapped_column(ForeignKey("models.model_id"))
 
     sentiment: Mapped[SentimentLabel] = mapped_column(
         Enum(SentimentLabel, name="sentiment_label")
     )
 
-    confidence: Mapped[Decimal] = mapped_column(
-        Numeric(5, 4)
-    )
+    confidence: Mapped[Decimal] = mapped_column(Numeric(5, 4))
 
-    prob_positive: Mapped[Decimal] = mapped_column(
-        Numeric(5, 4)
-    )
+    prob_positive: Mapped[Decimal] = mapped_column(Numeric(5, 4))
 
-    prob_neutral: Mapped[Decimal] = mapped_column(
-        Numeric(5, 4)
-    )
+    prob_neutral: Mapped[Decimal] = mapped_column(Numeric(5, 4))
 
-    prob_negative: Mapped[Decimal] = mapped_column(
-        Numeric(5, 4)
-    )
+    prob_negative: Mapped[Decimal] = mapped_column(Numeric(5, 4))
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
