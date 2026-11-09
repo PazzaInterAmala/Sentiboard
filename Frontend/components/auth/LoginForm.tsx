@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { api } from "@/lib/api";
+import { nextPath } from "@/lib/navigation";
 import { createLoginSchema, type LoginValues } from "@/lib/validation";
 import { AuthTabs, FieldError, FormAlert, SubmitButton } from "@/components/auth/AuthFrame";
 
@@ -22,7 +23,7 @@ export default function LoginForm() {
     setFormError("");
     try {
       await api.login(values);
-      router.replace("/dashboard");
+      router.replace(nextPath());
       router.refresh();
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "Unable to sign in. Please try again.");
@@ -36,7 +37,7 @@ export default function LoginForm() {
       <div className="space-y-5">
         <div>
           <label htmlFor="login-email" className="mb-2 block text-xs font-semibold">Email address</label>
-          <input id="login-email" type="email" autoComplete="email" inputMode="email" placeholder="you@company.com" aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? "login-email-error" : undefined} {...register("email")} className="h-11 w-full rounded-md border border-[#e9e5dc] bg-white px-3.5 text-sm outline-none placeholder:text-[#a1a8ad] focus:border-accent focus:ring-2 focus:ring-accent/10" />
+          <input id="login-email" type="email" autoComplete="email" inputMode="email" placeholder="you@company.com" aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? "login-email-error" : undefined} {...register("email")} className="h-11 w-full rounded-md border border-line bg-white px-3.5 text-sm outline-none placeholder:text-slate focus:border-accent" />
           <FieldError id="login-email-error">{errors.email?.message}</FieldError>
         </div>
         <div>
@@ -45,7 +46,7 @@ export default function LoginForm() {
             <span className="text-xs text-muted">Need help? <Link href="/about" className="text-accent hover:underline">Contact support</Link></span>
           </div>
           <div className="relative">
-            <input id="login-password" type={showPassword ? "text" : "password"} autoComplete="current-password" placeholder="Enter your password" aria-invalid={Boolean(errors.password)} aria-describedby={errors.password ? "login-password-error" : undefined} {...register("password")} className="h-11 w-full rounded-md border border-[#e9e5dc] bg-white px-3.5 pr-16 text-sm outline-none placeholder:text-[#a1a8ad] focus:border-accent focus:ring-2 focus:ring-accent/10" />
+            <input id="login-password" type={showPassword ? "text" : "password"} autoComplete="current-password" placeholder="Enter your password" aria-invalid={Boolean(errors.password)} aria-describedby={errors.password ? "login-password-error" : undefined} {...register("password")} className="h-11 w-full rounded-md border border-line bg-white px-3.5 pr-16 text-sm outline-none placeholder:text-slate focus:border-accent" />
             <button type="button" onClick={() => setShowPassword((shown) => !shown)} className="absolute inset-y-0 right-0 px-3 text-xs font-medium text-muted hover:text-ink" aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? "Hide" : "Show"}</button>
           </div>
           <FieldError id="login-password-error">{errors.password?.message}</FieldError>
