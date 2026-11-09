@@ -5,6 +5,7 @@ can be swapped (baseline, DistilBERT, ONNX DistilBERT) without touching backend 
 """
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol
 
 # Fixed label order everywhere: model outputs, probability vectors, DB enum.
@@ -44,11 +45,17 @@ def load_predictor(name: str, path: str) -> Predictor:
     """Load a trained model from a local artifact folder.
 
     `name` is the `models.name` value in the DB: "baseline" or "distilbert".
+    A "distilbert" folder with model.onnx (made by export_onnx.py) is loaded with
+    onnxruntime and needs no torch; otherwise it is loaded with transformers.
     """
     if name == "baseline":
         from sentiboard_ml.baseline import BaselinePredictor
 
         return BaselinePredictor.load(path)
+    if name == "distilbert" and (Path(path) / "model.onnx").exists():
+        from sentiboard_ml.distilbert_onnx import OnnxDistilBertPredictor
+
+        return OnnxDistilBertPredictor.load(path)
     if name == "distilbert":
         from sentiboard_ml.distilbert import DistilBertPredictor
 

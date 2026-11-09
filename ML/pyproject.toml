@@ -12,7 +12,9 @@ dependencies = [
     "numpy>=1.26",
     "scikit-learn>=1.5",
     "joblib>=1.4",
-    "transformers>=4.45",
+    "onnxruntime>=1.18",  # serving DistilBERT from model.onnx (no torch needed)
+    "tokenizers>=0.20",
+    "transformers>=5.0",  # train_distilbert.py uses the v5 TrainingArguments names
     "torch>=2.4",
 ]
 
@@ -22,6 +24,7 @@ train = [
     "datasets>=3.0",
     "pandas>=2.2",
     "accelerate>=0.34",
+    "onnx>=1.16",  # export_onnx.py
     "jupyter",
 ]
 dev = [
