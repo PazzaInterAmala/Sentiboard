@@ -40,7 +40,8 @@ For training DistilBERT on an NVIDIA GPU, install the CUDA build of torch first
 pip install torch --index-url https://download.pytorch.org/whl/cu124
 ```
 
-The backend installs only runtime deps: `pip install -e ../ML`.
+The backend installs only runtime deps: `pip install -e ../ML` (numpy, scikit-learn, joblib,
+onnxruntime, tokenizers; no torch). torch and transformers come with the `train` extra.
 
 ## Using it from the backend
 
