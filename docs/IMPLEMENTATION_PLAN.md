@@ -19,8 +19,8 @@ Legend: **[decided]** – agreed, build it this way. **[proposed]** – default 
 |---|---|
 | Spec, ER diagram, use case diagram | done |
 | UI design (Figma, by Roshan) | first version done, used as reference |
-| Repo structure (`Backend/`, `Frontend/`, `ML/`) | placeholder folders only |
-| Backend | not started |
+| Repo structure (`Backend/`, `Frontend/`, `ML/`) | present; implementation in progress |
+| Backend | auth, text analysis, query history, CSV flow, ML startup loader, keyword worker and endpoint implemented; dataset provider and dashboard APIs remain |
 | Frontend | not started |
 | ML | not started |
 | Deployment | not started |
@@ -46,7 +46,7 @@ Out of scope: languages other than English, real-time streaming, other sources t
 | Validation | Pydantic v2 (comes with FastAPI) | |
 | Auth | JWT (PyJWT), bcrypt password hashing | **[proposed]** |
 | Background jobs | FastAPI `BackgroundTasks` | **[proposed]** enough for MVP; jobs die on restart, see §6.3 |
-| Reddit client | PRAW | **[proposed]** |
+| Keyword search source | Downloaded Reddit dataset | Live Reddit API access is unavailable; search remains keyword-based and uses the same API contract. |
 | DB | PostgreSQL 16 | **[decided]** Render |
 | ML | PyTorch (CPU) + Hugging Face `transformers` for DistilBERT; scikit-learn for baseline | **[decided]** models, **[proposed]** libs |
 | Frontend | Next.js (App Router) + TypeScript, Chart.js via `react-chartjs-2` | **[decided]** Next.js + Chart.js |
@@ -262,7 +262,7 @@ Shapes:
 
 Input limits:
 - `text`: 1–5000 chars.
-- `keyword`: 1–100 chars; `limit`: 10–500, default 100; `time_range`: `day | week | month | year | all` (maps to PRAW `time_filter`).
+- `keyword`: 1–100 chars; `limit`: 10–500, default 100; `time_range`: `day | week | month | year | all` (filters the downloaded dataset by post date).
 - CSV: ≤ 5 MB, ≤ 5000 rows, UTF-8 (fallback latin-1), `text_column` must exist, empty rows skipped. Validation that can be done synchronously (size, header, column) returns `400` right away; per-row problems are skipped silently and counted.
 
 ### 6.3 Background jobs
@@ -282,6 +282,11 @@ POST /queries/keyword|csv
 ```
 
 - Each job opens its own DB session (not the request session).
+- `fetch_posts(keyword, limit, time_range)` returns post dictionaries with
+  required `external_id` and `text`, plus optional `author`, `subreddit`, `url`,
+  `score`, and `post_date` (`datetime | None`). The dataset provider applies
+  `time_range`; the backend stores these fields and deduplicates by
+  `(source, external_id)`.
 - `0 posts found` is `done` with `post_count = 0`; the frontend shows the "no posts found" empty state.
 - On backend startup, any query stuck in `pending`/`processing` is set to `failed` with `"Server restarted, please retry"` (BackgroundTasks die with the process).
 - CSV file is parsed in the request handler and the rows are passed to the job in memory; the file itself is not stored. Export is generated from the DB.
@@ -302,7 +307,7 @@ CSV columns: `text, label, confidence, prob_negative, prob_neutral, prob_positiv
 | `DATABASE_URL` | `postgresql+psycopg://…` |
 | `JWT_SECRET` | random 32+ bytes |
 | `JWT_EXPIRE_HOURS` | `24` |
-| `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `REDDIT_USER_AGENT` | from reddit.com/prefs/apps |
+| Reddit dataset path/index | To be agreed with ML; source for keyword search |
 | `CORS_ORIGINS` | `http://localhost:3000,https://sentiboard.vercel.app` |
 | `MODEL_DIR` | `/opt/models` |
 
@@ -468,7 +473,7 @@ Week numbers count from the spec date (week 1 = week of Oct 6, 2026). Adjust if 
 
 | Week | Sirio – Backend core | Kirill – ML + integration | Roshan – Frontend + Deploy/CI |
 |---|---|---|---|
-| 1–2 | project skeleton, config, DB models + first Alembic migration, auth endpoints, `/auth/me` | data loading + EDA, `clean_text`, baseline trained + metrics, `Predictor` interface with baseline; Reddit API app + keys | Next.js skeleton, layout + sidebar, login/register pages, API client with mocks; create Vercel/Render accounts, team access; GitHub Actions (lint + tests) |
+| 1–2 | project skeleton, config, DB models + first Alembic migration, auth endpoints, `/auth/me` | data loading + EDA, `clean_text`, baseline trained + metrics, `Predictor` interface with baseline; prepare downloaded Reddit dataset for keyword search | Next.js skeleton, layout + sidebar, login/register pages, API client with mocks; create Vercel/Render accounts, team access; GitHub Actions (lint + tests) |
 | 3 | `/analyze`, keyword job (using `fetch_posts`), `/queries`, `/queries/{id}` | DistilBERT fine-tuning + evaluation; `services/reddit.py`; `app/ml/` adapter (load on startup, batch predict); measure RAM | Analyze page: Text tab with `ResultCard`, Keyword tab, polling page; local `docker compose` (backend + Postgres) |
 | 4 | CSV upload + job, `/dashboard`, `/posts`, `/export` routes, startup recovery of stuck jobs | `services/dashboard.py` (split, per-day, top words, examples); seed `models` table; push artifacts to HF Hub; ONNX export + decide memory option (§9) | History + Dashboard pages, CSV tab; Dockerfile + `render.yaml`, first deploy of backend + DB, Vercel project |
 | 5 | tests for jobs and endpoints, fixes after first deploy | model download in Docker build, check RAM on Render; Reddit sanity set evaluation; tests for reddit + dashboard services | empty/error states, polish, switch from mocks to production API; prod env vars, CORS |

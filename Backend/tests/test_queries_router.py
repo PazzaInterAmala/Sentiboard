@@ -61,9 +61,7 @@ def test_list_queries_returns_only_current_users_queries(client: TestClient, db)
     assert second_page.json()["items"][0]["query_id"] == first_query.query_id
 
 
-def test_get_query_returns_positive_share_for_completed_query(
-    client: TestClient, db
-):
+def test_get_query_returns_positive_share_for_completed_query(client: TestClient, db):
     user, token = create_user(db, "querydetail")
     model = Model(name="query-detail-model", version="1.0")
     db.add(model)

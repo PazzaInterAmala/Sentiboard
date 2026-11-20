@@ -1,15 +1,34 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
 from sqlalchemy import Float, case, cast, func, select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.ml.registry import get_predictor
 from app.models.prediction import Prediction, SentimentLabel
-from app.models.query import QueryPost, QueryStatus, SearchQuery
+from app.models.query import QueryPost, QueryStatus, QueryType, SearchQuery
 from app.models.user import User
-from app.schemas.query import QueryListResponse, QueryResponse
+from app.schemas.query import (
+    KeywordQueryRequest,
+    QueryAcceptedResponse,
+    QueryListResponse,
+    QueryResponse,
+)
+from app.services.analyze import get_active_model
 from app.services.auth import get_current_user
+from app.services.csv_import import MAX_CSV_BYTES, parse_csv_upload
+from app.services.jobs import run_csv_job, run_keyword_job
 
 router = APIRouter(
     prefix="/queries",
@@ -73,6 +92,126 @@ def list_queries(
             for query, positive_share in rows
         ],
         total=total or 0,
+    )
+
+
+@router.post(
+    "/csv",
+    response_model=QueryAcceptedResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def create_csv_query(
+    background_tasks: BackgroundTasks,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    file: Annotated[UploadFile, File()],
+    text_column: Annotated[str, Form()],
+    date_column: Annotated[str | None, Form()] = None,
+) -> QueryAcceptedResponse:
+    content = file.file.read(MAX_CSV_BYTES + 1)
+
+    try:
+        rows, skipped_rows = parse_csv_upload(
+            content=content,
+            filename=file.filename or "",
+            text_column=text_column,
+            date_column=date_column or None,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    try:
+        model = get_active_model(db)
+    except LookupError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
+    try:
+        get_predictor(model.model_id)
+    except LookupError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
+    query = SearchQuery(
+        user_id=current_user.user_id,
+        type=QueryType.csv,
+        file_name=file.filename,
+        params={
+            "text_column": text_column,
+            "date_column": date_column or None,
+            "skipped_rows": skipped_rows,
+        },
+        model_id=model.model_id,
+        status=QueryStatus.pending,
+    )
+    db.add(query)
+    db.commit()
+    db.refresh(query)
+
+    background_tasks.add_task(
+        run_csv_job,
+        query.query_id,
+        rows,
+        skipped_rows=skipped_rows,
+    )
+
+    return QueryAcceptedResponse(
+        query_id=query.query_id,
+        status=QueryStatus.pending,
+    )
+
+
+@router.post(
+    "/keyword",
+    response_model=QueryAcceptedResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def create_keyword_query(
+    data: KeywordQueryRequest,
+    background_tasks: BackgroundTasks,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> QueryAcceptedResponse:
+    try:
+        model = get_active_model(db)
+    except LookupError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
+    try:
+        get_predictor(model.model_id)
+    except LookupError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
+    query = SearchQuery(
+        user_id=current_user.user_id,
+        type=QueryType.keyword,
+        keyword=data.keyword,
+        params={"limit": data.limit, "time_range": data.time_range},
+        model_id=model.model_id,
+        status=QueryStatus.pending,
+    )
+    db.add(query)
+    db.commit()
+    db.refresh(query)
+
+    background_tasks.add_task(run_keyword_job, query.query_id)
+
+    return QueryAcceptedResponse(
+        query_id=query.query_id,
+        status=QueryStatus.pending,
     )
 
 

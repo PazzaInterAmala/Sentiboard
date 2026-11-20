@@ -61,9 +61,12 @@ def client(db_connection):
             yield db
 
     app.dependency_overrides[get_db] = override_get_db
+    was_testing = getattr(app.state, "testing", False)
+    app.state.testing = True
 
     try:
         with TestClient(app) as test_client:
             yield test_client
     finally:
         app.dependency_overrides.pop(get_db, None)
+        app.state.testing = was_testing
