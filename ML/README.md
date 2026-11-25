@@ -64,8 +64,20 @@ results[0].label, results[0].confidence, results[0].probabilities
 2. `python train_distilbert.py --version 1.0` (GPU; a 4 GB card is enough with fp16)
 3. `python export_onnx.py --path artifacts/distilbert-1.0` → `artifacts/distilbert-1.0-onnx-int8/`
 4. `python evaluate.py --model <name> --path artifacts/<folder> --cpu`
-5. Upload the folder that will be served (`baseline-1.0`, `distilbert-1.0-onnx-int8`) to the
-   Hugging Face Hub model repo.
+5. Upload the folders that are served (`baseline-1.0`, `distilbert-1.0-onnx-int8`) to the
+   Hugging Face Hub: [KirillPo/sentiboard-models](https://huggingface.co/KirillPo/sentiboard-models).
+
+### Get the trained models and the Reddit index
+
+Both are public on the Hugging Face Hub, no token needed (`pip install huggingface_hub`):
+
+```bash
+hf download KirillPo/sentiboard-models --local-dir artifacts
+hf download KirillPo/sentiboard-reddit-index reddit_posts.sqlite --repo-type dataset --local-dir artifacts
+```
+
+Then run the backend with `MODEL_DIR=../ML/artifacts` and
+`REDDIT_INDEX_PATH=../ML/artifacts/reddit_posts.sqlite` (see `Backend/.env.example`).
 
 ## Results
 
@@ -75,7 +87,8 @@ TweetEval is out-of-domain (tweets, different class balance).
 | Model | GoEmotions macro F1 | GoEmotions acc | TweetEval macro F1 | Notes |
 |---|---|---|---|---|
 | baseline 1.0 | 0.709 | 0.719 | 0.484 | TF-IDF 1–2 grams + LogReg, C=2 |
-| distilbert 1.0 | **0.767** | **0.777** | **0.553** | 3 epochs, lr 2e-5, best epoch 3; ~35 min on a GTX 1650 |
+| distilbert 1.0 | **0.767** | **0.777** | 0.553 | 3 epochs, lr 2e-5, best epoch 3; ~35 min on a GTX 1650 |
+| distilbert 1.0-onnx-int8 | 0.764 | 0.773 | **0.556** | what the server runs; ~12 s / 1000 texts on a laptop CPU |
 
 Per-class F1 on GoEmotions test (negative / neutral / positive):
 baseline 0.64 / 0.69 / 0.80, distilbert 0.73 / 0.72 / 0.85.
@@ -93,10 +106,13 @@ on battery, so compare ratios, not absolute values):
 | distilbert 1.0, ONNX fp32 | 256 MB | ~50 texts/s | 100% (identical probabilities) |
 | distilbert 1.0, ONNX int8 | **64 MB** | **~85 texts/s** | 96.7% |
 
-TODO: full test-set metrics of the int8 model (`evaluate.py --cpu`) and its RAM use,
-which must fit the 512 MB of Render Free/Starter (plan §9).
+On the full test sets int8 loses almost nothing: GoEmotions macro F1 0.764 vs 0.767,
+TweetEval 0.556 vs 0.553 (table above). RAM: the backend with both models (baseline + int8
+DistilBERT) uses ~330 MB in a Linux container limited to 512 MB, stable under load, so it fits
+Render's 512 MB plan (§9).
 
-Spot check (`SPOT_CHECK` in `evaluate.py`, 10 hard phrases): baseline 3/10, distilbert 5/10.
+Spot check (`SPOT_CHECK` in `evaluate.py`, 10 hard phrases): baseline 3/10, distilbert 5/10,
+int8 4/10 (it flips "I don't hate it" to negative, 0.57).
 DistilBERT fixes negation ("I don't love it", "I don't hate it", "can't complain"), but both
 models still read sarcasm as positive ("Great, another delay…", "Oh wonderful, my phone died
 again") and miss slang ("devs cooked"). GoEmotions has few sarcastic examples, so this is a
@@ -114,8 +130,10 @@ The Reddit API is closed to new apps, so keyword search runs over a downloaded d
    `artifacts/reddit_posts.sqlite`: keeps English texts of 30-1000 characters, drops bots,
    removed posts, duplicates and NSFW subreddits, then keeps all posts plus a random sample of
    comments, 200k rows in total (~35k posts, ~165k comments, 89 MB).
-3. The backend reads the file from `REDDIT_INDEX_PATH` (`app/services/reddit.py`), so it goes
-   to the Hugging Face Hub with the models and is downloaded in the Docker build.
+3. The backend reads the file from `REDDIT_INDEX_PATH` (`app/services/reddit.py`). It is
+   published as the dataset
+   [KirillPo/sentiboard-reddit-index](https://huggingface.co/datasets/KirillPo/sentiboard-reddit-index)
+   and downloaded in the Docker build.
 
 Search finds texts that contain every word of the keyword (case-insensitive, with stemming:
 "phones" matches "phone"), best matches first; 5-60 ms per query. Limitations to mention in the
