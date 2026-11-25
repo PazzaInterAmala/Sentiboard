@@ -296,7 +296,7 @@ POST /queries/keyword|csv
 All computed from predictions where `model_id = query.model_id`.
 - **split / counts** – group by sentiment.
 - **per_day** – group by `date(coalesce(post_date, created_at))`. If all posts fall on one day (typical for CSV without a date column) the frontend hides the line chart.
-- **top_words** – tokens of `clean_text`, lowercase, drop stopwords (scikit-learn English list + `"http"`, `"amp"`, etc.), drop tokens shorter than 3 chars, drop the query keyword itself; top 10 per class. Computed on request; fine for ≤ 5000 posts.
+- **top_words** – tokens of `clean_text`, lowercase, drop stopwords (scikit-learn English list + `"http"`, `"amp"`, etc.), drop tokens shorter than 3 chars, drop the query keyword and its forms (`remote work` also hides `remotely`, `working`); top 10 per class, `count` = number of posts that contain the word. Computed on request; fine for ≤ 5000 posts.
 
 ### 6.5 Export
 CSV columns: `text, label, confidence, prob_negative, prob_neutral, prob_positive, post_date, author, subreddit, url`. Filename: `sentiboard_<query_id>.csv`.

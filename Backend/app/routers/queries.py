@@ -24,6 +24,7 @@ from app.models.post import Post
 from app.models.prediction import Prediction, SentimentLabel
 from app.models.query import QueryPost, QueryStatus, QueryType, SearchQuery
 from app.models.user import User
+from app.schemas.dashboard import DashboardResponse
 from app.schemas.query import (
     KeywordQueryRequest,
     PostListResponse,
@@ -35,6 +36,7 @@ from app.schemas.query import (
 from app.services.analyze import get_active_model
 from app.services.auth import get_current_user
 from app.services.csv_import import MAX_CSV_BYTES, parse_csv_upload
+from app.services.dashboard import build_dashboard
 from app.services.jobs import run_csv_job, run_keyword_job
 
 router = APIRouter(
@@ -372,6 +374,17 @@ def export_query_csv(
             "Content-Disposition": f'attachment; filename="sentiboard_{query_id}.csv"'
         },
     )
+
+
+@router.get("/{query_id}/dashboard", response_model=DashboardResponse)
+def get_query_dashboard(
+    query_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> DashboardResponse:
+    query = get_query(query_id, db, current_user)
+    search_query = db.get(SearchQuery, query_id)
+    return DashboardResponse(query=query, **build_dashboard(db, search_query))
 
 
 @router.get("/{query_id}", response_model=QueryResponse)
