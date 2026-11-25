@@ -8,19 +8,21 @@ version = "0.1.0"
 description = "Sentiment models (baseline + DistilBERT) for SentiBoard"
 requires-python = ">=3.12"
 # Runtime deps: what the backend needs to load models and predict.
+# DistilBERT is served from model.onnx (onnxruntime + tokenizers), so no torch here.
 dependencies = [
     "numpy>=1.26",
     "scikit-learn>=1.5",
     "joblib>=1.4",
     "onnxruntime>=1.18",  # serving DistilBERT from model.onnx (no torch needed)
     "tokenizers>=0.20",
-    "transformers>=5.0",  # train_distilbert.py uses the v5 TrainingArguments names
-    "torch>=2.4",
 ]
 
 [project.optional-dependencies]
-# Training, evaluation and notebooks.
+# Training, ONNX export, evaluation and notebooks; also needed to load the PyTorch
+# DistilBERT folder (one without model.onnx).
 train = [
+    "torch>=2.4",
+    "transformers>=5.0",  # train_distilbert.py uses the v5 TrainingArguments names
     "datasets>=3.0",
     "pandas>=2.2",
     "accelerate>=0.34",

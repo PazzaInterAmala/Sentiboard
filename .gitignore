@@ -153,6 +153,7 @@ activemq-data/
 .env
 .envrc
 .venv
+.venv312/
 env/
 venv/
 ENV/
@@ -218,6 +219,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+.streamlit/secrets.toml
+
+# Python virtual environments
+.venv/
 
 # SentiBoard: ML artifacts (model weights live on Hugging Face Hub, not in git)
 ML/artifacts/
