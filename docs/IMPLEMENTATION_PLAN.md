@@ -226,8 +226,8 @@ Error format for all errors: `{"detail": "human readable message"}` (FastAPI def
 | GET | `/queries` | `?page&page_size` | `{items: [Query], total}` |
 | GET | `/queries/{id}` | – | `Query` |
 | GET | `/queries/{id}/dashboard` | – | `Dashboard` |
-| GET | `/queries/{id}/posts` | `?page&page_size&label` | `{items: [PostWithPrediction], total}` |
-| GET | `/queries/{id}/export` | – | `text/csv` file |
+| GET | `/queries/{id}/posts` | `?page&page_size&label` | `{items: [PostWithPrediction], total}` **[implemented]** |
+| GET | `/queries/{id}/export` | – | `text/csv` file **[implemented]** |
 | GET | `/models` *(nice to have)* | – | `[Model]` (admin) |
 | POST | `/models/{id}/activate` *(nice to have)* | – | `Model` (admin) |
 

@@ -4,6 +4,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from app.models.query import QueryStatus, QueryType
+from app.schemas.analyze import PredictionResponse
 
 
 class QueryResponse(BaseModel):
@@ -39,3 +40,18 @@ class KeywordQueryRequest(BaseModel):
     ]
     limit: Annotated[int, Field(ge=10, le=500)] = 100
     time_range: Literal["day", "week", "month", "year", "all"] = "week"
+
+
+class PostWithPredictionResponse(BaseModel):
+    post_id: int
+    text: str
+    author: str | None
+    subreddit: str | None
+    url: str | None
+    post_date: datetime | None
+    prediction: PredictionResponse
+
+
+class PostListResponse(BaseModel):
+    items: list[PostWithPredictionResponse]
+    total: int

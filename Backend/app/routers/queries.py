@@ -1,3 +1,5 @@
+import csv
+import io
 from typing import Annotated
 
 from fastapi import (
@@ -8,19 +10,24 @@ from fastapi import (
     Form,
     HTTPException,
     Query,
+    Response,
     UploadFile,
     status,
 )
-from sqlalchemy import Float, case, cast, func, select
+from sqlalchemy import Float, and_, case, cast, func, select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.ml.registry import get_predictor
+from app.models.model import Model
+from app.models.post import Post
 from app.models.prediction import Prediction, SentimentLabel
 from app.models.query import QueryPost, QueryStatus, QueryType, SearchQuery
 from app.models.user import User
 from app.schemas.query import (
     KeywordQueryRequest,
+    PostListResponse,
+    PostWithPredictionResponse,
     QueryAcceptedResponse,
     QueryListResponse,
     QueryResponse,
@@ -212,6 +219,158 @@ def create_keyword_query(
     return QueryAcceptedResponse(
         query_id=query.query_id,
         status=QueryStatus.pending,
+    )
+
+
+@router.get("/{query_id}/posts", response_model=PostListResponse)
+def list_query_posts(
+    query_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+    label: SentimentLabel | None = None,
+) -> PostListResponse:
+    query = db.scalar(
+        select(SearchQuery).where(
+            SearchQuery.query_id == query_id,
+            SearchQuery.user_id == current_user.user_id,
+        )
+    )
+    if query is None:
+        raise HTTPException(status_code=404, detail="Query not found")
+    if query.model_id is None:
+        return PostListResponse(items=[], total=0)
+
+    filters = [
+        QueryPost.query_id == query_id,
+        Prediction.model_id == query.model_id,
+    ]
+    if label is not None:
+        filters.append(Prediction.sentiment == label)
+
+    total = db.scalar(
+        select(func.count(Prediction.prediction_id))
+        .select_from(QueryPost)
+        .join(
+            Prediction,
+            Prediction.post_id == QueryPost.post_id,
+        )
+        .where(*filters)
+    )
+
+    rows = db.execute(
+        select(Post, Model, Prediction)
+        .join(QueryPost, QueryPost.post_id == Post.post_id)
+        .join(
+            Prediction,
+            and_(
+                Prediction.post_id == Post.post_id,
+                Prediction.model_id == query.model_id,
+            ),
+        )
+        .join(Model, Model.model_id == Prediction.model_id)
+        .where(*filters)
+        .order_by(Post.post_date.desc().nullslast(), Post.post_id.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    ).all()
+
+    return PostListResponse(
+        items=[
+            PostWithPredictionResponse(
+                post_id=post.post_id,
+                text=post.text,
+                author=post.author,
+                subreddit=post.subreddit,
+                url=post.url,
+                post_date=post.post_date,
+                prediction={
+                    "model": model.name,
+                    "label": prediction.sentiment,
+                    "confidence": float(prediction.confidence),
+                    "probabilities": {
+                        SentimentLabel.negative: float(prediction.prob_negative),
+                        SentimentLabel.neutral: float(prediction.prob_neutral),
+                        SentimentLabel.positive: float(prediction.prob_positive),
+                    },
+                },
+            )
+            for post, model, prediction in rows
+        ],
+        total=total or 0,
+    )
+
+
+@router.get("/{query_id}/export")
+def export_query_csv(
+    query_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> Response:
+    query = db.scalar(
+        select(SearchQuery).where(
+            SearchQuery.query_id == query_id,
+            SearchQuery.user_id == current_user.user_id,
+        )
+    )
+    if query is None:
+        raise HTTPException(status_code=404, detail="Query not found")
+
+    output = io.StringIO(newline="")
+    writer = csv.writer(output)
+    writer.writerow(
+        [
+            "text",
+            "label",
+            "confidence",
+            "prob_negative",
+            "prob_neutral",
+            "prob_positive",
+            "post_date",
+            "author",
+            "subreddit",
+            "url",
+        ]
+    )
+
+    if query.model_id is not None:
+        rows = db.execute(
+            select(Post, Prediction)
+            .join(QueryPost, QueryPost.post_id == Post.post_id)
+            .join(
+                Prediction,
+                and_(
+                    Prediction.post_id == Post.post_id,
+                    Prediction.model_id == query.model_id,
+                ),
+            )
+            .where(QueryPost.query_id == query_id)
+            .order_by(Post.post_date.desc().nullslast(), Post.post_id.desc())
+        ).all()
+
+        for post, prediction in rows:
+            writer.writerow(
+                [
+                    post.text,
+                    prediction.sentiment.value,
+                    prediction.confidence,
+                    prediction.prob_negative,
+                    prediction.prob_neutral,
+                    prediction.prob_positive,
+                    post.post_date.isoformat() if post.post_date else "",
+                    post.author or "",
+                    post.subreddit or "",
+                    post.url or "",
+                ]
+            )
+
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="sentiboard_{query_id}.csv"'
+        },
     )
 
 
