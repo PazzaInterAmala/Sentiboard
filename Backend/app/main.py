@@ -1,13 +1,12 @@
 import logging
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.db import SessionLocal
-from app.ml.loader import load_registered_models
+from app.ml.loader import load_models
 from app.routers import analyze, auth, queries
 
 logger = logging.getLogger(__name__)
@@ -18,7 +17,7 @@ async def lifespan(app: FastAPI):
     if not getattr(app.state, "testing", False):
         try:
             with SessionLocal() as db:
-                load_registered_models(db, Path(settings.model_dir))
+                load_models(db, settings.model_dir, settings.active_model)
         except Exception:
             logger.exception("Failed to load sentiment models during startup")
             raise

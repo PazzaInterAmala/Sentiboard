@@ -219,7 +219,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
-.streamlit/secrets.toml
 
 # Python virtual environments
 .venv/
@@ -230,3 +229,9 @@ ML/artifacts/
 *.pt
 *.safetensors
 *.onnx
+
+# Frontend
+Frontend/node_modules/
+Frontend/.next/
+# The Python template above ignores lib/; the frontend keeps source code there.
+!Frontend/lib/
