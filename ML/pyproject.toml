@@ -25,6 +25,7 @@ train = [
     "transformers>=5.0",  # train_distilbert.py uses the v5 TrainingArguments names
     "datasets>=3.0",
     "pandas>=2.2",
+    "pyarrow>=15",  # build_reddit_index.py reads the Reddit dataset parquet files
     "accelerate>=0.34",
     "onnx>=1.16",  # export_onnx.py
     "jupyter",

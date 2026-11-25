@@ -307,7 +307,7 @@ CSV columns: `text, label, confidence, prob_negative, prob_neutral, prob_positiv
 | `DATABASE_URL` | `postgresql+psycopg://…` |
 | `JWT_SECRET` | random 32+ bytes |
 | `JWT_EXPIRE_HOURS` | `24` |
-| Reddit dataset path/index | To be agreed with ML; source for keyword search |
+| `REDDIT_INDEX_PATH` | `/opt/data/reddit_posts.sqlite`: offline Reddit search index built by `ML/build_reddit_index.py` |
 | `CORS_ORIGINS` | `http://localhost:3000,https://sentiboard.vercel.app` |
 | `MODEL_DIR` | `/opt/models` |
 

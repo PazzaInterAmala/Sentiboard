@@ -13,11 +13,13 @@ ML/
 │   ├── data.py           # load("goemotions" | "tweet_eval")
 │   ├── baseline.py       # TF-IDF + LogisticRegression
 │   ├── distilbert.py     # fine-tuned distilbert-base-uncased (PyTorch, for training)
-│   └── distilbert_onnx.py # the same model as int8 ONNX (what the server runs)
+│   ├── distilbert_onnx.py # the same model as int8 ONNX (what the server runs)
+│   └── reddit_index.py   # offline Reddit search (SQLite FTS5), used by keyword search
 ├── train_baseline.py
 ├── train_distilbert.py
 ├── export_onnx.py        # DistilBERT -> ONNX int8
 ├── evaluate.py           # writes metrics.json for the `models` table
+├── build_reddit_index.py # Reddit dataset -> artifacts/reddit_posts.sqlite
 ├── notebooks/            # EDA and experiments, not imported anywhere
 ├── tests/
 └── artifacts/            # trained models, git-ignored
@@ -99,3 +101,23 @@ DistilBERT fixes negation ("I don't love it", "I don't hate it", "can't complain
 models still read sarcasm as positive ("Great, another delay…", "Oh wonderful, my phone died
 again") and miss slang ("devs cooked"). GoEmotions has few sarcastic examples, so this is a
 known limitation to mention in the report.
+
+## Reddit keyword search (offline dataset)
+
+The Reddit API is closed to new apps, so keyword search runs over a downloaded dataset:
+[goldentraversy07/reddit_dataset_202507](https://huggingface.co/datasets/goldentraversy07/reddit_dataset_202507)
+(MIT, posts and comments from thousands of subreddits, June-July 2025).
+
+1. Download parquet files from the dataset's `data/` folder. We use `chunk_0` (June 9) and
+   `chunk_12`-`chunk_29` (July 23-31): ~1.1 GB, ~2M rows.
+2. `python build_reddit_index.py <folder with the parquet files>` →
+   `artifacts/reddit_posts.sqlite`: keeps English texts of 30-1000 characters, drops bots,
+   removed posts, duplicates and NSFW subreddits, then keeps all posts plus a random sample of
+   comments, 200k rows in total (~35k posts, ~165k comments, 89 MB).
+3. The backend reads the file from `REDDIT_INDEX_PATH` (`app/services/reddit.py`), so it goes
+   to the Hugging Face Hub with the models and is downloaded in the Docker build.
+
+Search finds texts that contain every word of the keyword (case-insensitive, with stemming:
+"phones" matches "phone"), best matches first; 5-60 ms per query. Limitations to mention in the
+report: the posts are from summer 2025, not live; time ranges count back from the newest post
+(July 31, 2025), so "week" is July 25-31; the dataset has no authors, links or scores.
