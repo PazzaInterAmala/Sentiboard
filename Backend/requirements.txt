@@ -8,6 +8,8 @@ email-validator
 python-multipart
 pyjwt
 bcrypt
+# ML package from this repo (clean_text + predictors); install from Backend/ so the path resolves
+-e ../ML
 pytest
 httpx
 ruff
